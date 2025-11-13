@@ -24,13 +24,17 @@ pipeline {
         }
 
         // --- 2. Install Dependencies 📥 ---
-        stage('Install Dependencies') {
-            steps {
-                tool 'NodeJS 22.0.0'
-                dir('client')
-                sh 'npm install'
-            }
+       stage('Install Dependencies') {
+         steps {
+          script {
+            def nodeHome = tool name: 'NodeJS 22.0.0', type: 'jenkins.plugins.nodejs.tools.NodeJSInstallation'
+            env.PATH = "${nodeHome}/bin:${env.PATH}"
         }
+        dir('client') {
+            sh 'npm install'
+        }
+    }
+
 
         // --- 3. SonarQube Analysis (Using Docker) 🛡️ ---
         stage('SonarQube Analysis') {
