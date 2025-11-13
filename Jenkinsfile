@@ -66,7 +66,7 @@ pipeline {
             steps {
                 script {
                     // Wait for the SonarQube analysis to complete and check the Quality Gate status
-                    waitForQualityGate abortPipeline: true
+                    waitForQualityGate abortPipeline: true, credentialsId: 'SONAR_TOKEN'
                 }
             }
         }
