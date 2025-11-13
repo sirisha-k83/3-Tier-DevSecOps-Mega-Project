@@ -15,7 +15,6 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                // Ensure the branch name matches the primary branch of your GitHub repo
                 git branch: 'master', url: 'https://github.com/sirisha-k83/3-Tier-DevSecOps-Mega-Project.git'
             }
         }
@@ -33,38 +32,34 @@ pipeline {
         // --- Install Dependencies ---
         stage('Install Dependencies') {
             steps {
-                // Use the nodejs wrapper and the exact tool name configured in Jenkins Tools
-                nodejs('NodeJS 22.0.0') {
+                nodejs('NodeJS 22.0.0') { // Uses tool name 'NodeJS 22.0.0'
                     dir('client') {
                         sh 'npm install'
                     }
-                } // <-- Correctly closed nodejs block
+                }
             }
         }
 
-      // --- SonarQube Analysis ---
-stage('SonarQube Analysis') {
-    steps {
-        // 1. Explicitly load the SonarQube Scanner executable onto the PATH
-        def scannerHome = tool 'Sonar_Scanner'
-        
-        // 2. Use withCredentials to retrieve the Secret Text token safely
-        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
-            
-            // 3. Use withSonarQubeEnv to set server URL and authentication for the scanner
-            withSonarQubeEnv("${SONARQUBE_SERVER}") { // This uses the server named 'MySonarServer'
-                sh """
-                    # sonar-scanner is now found because the 'tool' step added its directory to the PATH
-                    sonar-scanner \
-                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                    -Dsonar.projectName=${SONAR_PROJECT_NAME} \
-                    -Dsonar.sources=client \
-                    -Dsonar.login=${SONAR_LOGIN_TOKEN}
-                """
+        // --- SonarQube Analysis ---
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'Sonar_Scanner' // Uses tool name 'Sonar_Scanner'
+                    
+                    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
+                        withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \\
+                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
+                                -Dsonar.projectName=${SONAR_PROJECT_NAME} \\
+                                -Dsonar.sources=client \\
+                                -Dsonar.login=${SONAR_LOGIN_TOKEN}
+                            """
+                        }
+                    }
+                }
             }
         }
-    }
-}
 
         // --- Quality Gate Check ---
         stage('Quality Gate Check') {
