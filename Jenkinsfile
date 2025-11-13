@@ -23,17 +23,19 @@ pipeline {
             steps {
                 script {
                     env.COMMIT_SHA = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                    // Using the SONAR_PROJECT_NAME as the image name for consistency
                     env.DOCKER_IMAGE_NAME = "${SONAR_PROJECT_NAME}" 
                     env.DOCKER_IMAGE = "sirishak83/${env.DOCKER_IMAGE_NAME}:${env.COMMIT_SHA}"
                 }
             }
         }
 
-        // --- Install Dependencies ---
+        // --- Install Dependencies on Agent (for SonarQube analysis) ---
         stage('Install Dependencies') {
             steps {
                 nodejs('NodeJS 22.0.0') {
+                    dir('api') {
+                        sh 'npm install'
+                    }
                     dir('client') {
                         sh 'npm install'
                     }
@@ -53,7 +55,7 @@ pipeline {
                                 ${scannerHome}/bin/sonar-scanner \\
                                 -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
                                 -Dsonar.projectName=${SONAR_PROJECT_NAME} \\
-                                -Dsonar.sources=client \\
+                                -Dsonar.sources=api,client \\
                                 -Dsonar.login=${SONAR_LOGIN_TOKEN}
                             """
                         }
@@ -62,7 +64,7 @@ pipeline {
             }
         }
 
-        // --- Quality Gate Check (TEMPORARILY SKIPPED) ---
+        // --- Quality Gate Check (TEMPORARILY SKIPPED to bypass hang) ---
         stage('Quality Gate Check') {
             when { 
                 expression { 
@@ -79,7 +81,7 @@ pipeline {
         // --- TRIVY FS Scan ---
         stage('TRIVY FS Scan') {
             steps {
-                sh "trivy fs . > trivyfs.txt" // Scans the filesystem and stores results
+                sh "trivy fs . > trivyfs.txt"
             }
         }
 
@@ -87,15 +89,13 @@ pipeline {
         stage("Docker Build & Push") {
             steps {
                 script {
-                    // Assuming 'docker' is the ID for your DockerHub credentials
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') { 
-                        // Build using the project name
-                        sh "docker build -t ${env.DOCKER_IMAGE_NAME} ." 
-                        // Tagging with latest for easy reference (and SHA for immutable tag)
+                        // FIX: Use -f to specify the correct Dockerfile name (dockerfile.js)
+                        sh "docker build -f dockerfile.js -t ${env.DOCKER_IMAGE_NAME} ." 
+
                         sh "docker tag ${env.DOCKER_IMAGE_NAME} sirishak83/${env.DOCKER_IMAGE_NAME}:latest" 
                         sh "docker tag ${env.DOCKER_IMAGE_NAME} ${env.DOCKER_IMAGE}" 
                         
-                        // Push both tags
                         sh "docker push sirishak83/${env.DOCKER_IMAGE_NAME}:latest"
                         sh "docker push ${env.DOCKER_IMAGE}"
                     }
@@ -108,14 +108,14 @@ pipeline {
             steps {
                 // Remove previous container if it exists, then run the new image
                 sh "docker rm -f ${env.DOCKER_IMAGE_NAME} || true" 
-                sh "docker run -d --name ${env.DOCKER_IMAGE_NAME} -p 3000:3000 sirishak83/${env.DOCKER_IMAGE_NAME}:latest"
+                sh "docker run -d --name ${env.DOCKER_IMAGE_NAME} -p 3000:3000 -p 5000:5000 sirishak83/${env.DOCKER_IMAGE_NAME}:latest"
             }
         }
-    } // <-- This closes the main 'stages' block.
+    }
 
     post {
         always {
             echo "Pipeline finished for commit ${env.COMMIT_SHA}"
         }
     }
-} // <-- This closes the 'pipeline' block.
+}
