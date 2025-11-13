@@ -61,7 +61,7 @@ pipeline {
             }
         }
 
-       // --- Quality Gate Check ---
+      // --- Quality Gate Check ---
 stage('Quality Gate Check') {
     // TEMPORARILY SET TO FALSE TO SKIP THE HANGING STAGE
     when { 
@@ -71,7 +71,7 @@ stage('Quality Gate Check') {
     }
     steps {
         script {
-            // This will only run if the 'when' expression is true (which it isn't)
+            // This code will not be executed while the 'when' expression is false
             waitForQualityGate abortPipeline: true
         }
     }
