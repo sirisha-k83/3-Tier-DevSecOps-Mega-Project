@@ -45,6 +45,7 @@ pipeline {
         // --- SonarQube Analysis ---
         stage('SonarQube Analysis') {
             steps {
+                tool 'Sonar_Scanner'
                 // 1. Use withCredentials to retrieve the Secret Text token safely
                 withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
                     // 2. Use withSonarQubeEnv to set server URL and path for the scanner
