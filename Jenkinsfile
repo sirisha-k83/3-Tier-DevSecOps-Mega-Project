@@ -6,23 +6,20 @@ pipeline {
     }
 
     environment {
-        // SonarQube and build configuration
-        SONARQUBE_SERVER = 'MySonarServer'           // Must match Jenkins SonarQube config name
+        SONARQUBE_SERVER = 'MySonarServer'
         SONAR_PROJECT_KEY = '3-Tier-DevopsShack'
         SONAR_PROJECT_NAME = '3-Tier-DevopsShack'
-        SONAR_TOKEN = credentials('SONAR_TOKEN')     // Securely stored in Jenkins credentials
+        SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
     stages {
 
-        // --- 1. Checkout 📦 ---
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/sirisha-k83/3-Tier-DevSecOps-Mega-Project.git'
             }
         }
 
-        // --- 2. Set Environment Variables 🧩 ---
         stage('Set Environment Variables') {
             steps {
                 script {
@@ -33,7 +30,6 @@ pipeline {
             }
         }
 
-        // --- 3. Install Dependencies 📥 ---
         stage('Install Dependencies') {
             steps {
                 script {
@@ -46,7 +42,6 @@ pipeline {
             }
         }
 
-        // --- 4. SonarQube Analysis 🔍 ---
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv("${SONARQUBE_SERVER}") {
@@ -64,7 +59,6 @@ pipeline {
             }
         }
 
-        // --- 5. Quality Gate Check ✅ ---
         stage('Quality Gate Check') {
             steps {
                 script {
@@ -76,13 +70,7 @@ pipeline {
 
     post {
         always {
-            echo "Pipeline completed for commit: ${env.COMMIT_SHA}"
-        }
-        success {
-            echo "✅ Build, SonarQube scan, and Quality Gate passed successfully!"
-        }
-        failure {
-            echo "❌ Build or Quality Gate failed — check logs for details."
+            echo "Pipeline finished for commit ${env.COMMIT_SHA}"
         }
     }
 }
