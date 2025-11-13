@@ -6,9 +6,22 @@ pipeline {
     }
 
     environment {
+        // --- SonarQube Variables ---
         SONARQUBE_SERVER = 'MySonarServer'
         SONAR_PROJECT_KEY = '3-Tier-DevopsShack'
-        SONAR_PROJECT_NAME = '3-tier-devopsshack'
+        SONAR_PROJECT_NAME = '3-Tier-devopsshack'
+
+        // --- Docker & Git Variables ---
+        // These will be set in a script block below, but defined here to be clear
+        // DOCKER_IMAGE_NAME and COMMIT_SHA will be set dynamically
+
+        // --- MySQL Connection Variables (USING PROVIDED VALUES) ---
+        // WARNING: DB_PASS is hardcoded here and will be visible in logs!
+        DB_HOST = '172.17.0.1'           // Docker bridge gateway IP to access MySQL on the host VM
+        DB_USER = 'root'
+        DB_NAME = 'crud_app'
+        DB_PASS = 'Siri'                 // Hardcoded password
+        DB_PORT = '3306'                 // MySQL default port
     }
 
     stages {
@@ -29,7 +42,7 @@ pipeline {
             }
         }
 
-        // --- Install Dependencies on Agent (for SonarQube analysis) ---
+        // --- Install Dependencies on Agent (for analysis) ---
         stage('Install Dependencies') {
             steps {
                 nodejs('NodeJS 22.0.0') {
@@ -64,7 +77,7 @@ pipeline {
             }
         }
 
-        // --- Quality Gate Check (TEMPORARILY SKIPPED to bypass hang) ---
+        // --- Quality Gate Check (TEMPORARILY SKIPPED) ---
         stage('Quality Gate Check') {
             when { 
                 expression { 
@@ -81,6 +94,7 @@ pipeline {
         // --- TRIVY FS Scan ---
         stage('TRIVY FS Scan') {
             steps {
+                // Ensure Trivy is installed on the agent
                 sh "trivy fs . > trivyfs.txt"
             }
         }
@@ -89,6 +103,7 @@ pipeline {
         stage("Docker Build & Push") {
             steps {
                 script {
+                    // Assuming 'docker' is the ID for your DockerHub credentials
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') { 
                         // FIX: Use -f to specify the correct Dockerfile name (dockerfile.js)
                         sh "docker build -f dockerfile -t ${env.DOCKER_IMAGE_NAME} ." 
@@ -103,12 +118,24 @@ pipeline {
             }
         }
 
-        // --- Deploy to Container ---
+        // --- Deploy to Container with DB Credentials ---
         stage('Deploy to Container') {
             steps {
-                // Remove previous container if it exists, then run the new image
                 sh "docker rm -f ${env.DOCKER_IMAGE_NAME} || true" 
-                sh "docker run -d --name ${env.DOCKER_IMAGE_NAME} -p 3000:3000 -p 5000:5000 sirishak83/${env.DOCKER_IMAGE_NAME}:latest"
+                
+                // Passing all necessary environment variables (-e) to the container
+                sh """
+                    docker run -d \\
+                    --name ${env.DOCKER_IMAGE_NAME} \\
+                    -p 3000:3000 \\
+                    -p 5000:5000 \\
+                    -e DB_HOST='${env.DB_HOST}' \\
+                    -e DB_USER='${env.DB_USER}' \\
+                    -e DB_NAME='${env.DB_NAME}' \\
+                    -e DB_PORT='${env.DB_PORT}' \\
+                    -e DB_PASS='${env.DB_PASS}' \\
+                    sirishak83/${env.DOCKER_IMAGE_NAME}:latest
+                """
             }
         }
     }
