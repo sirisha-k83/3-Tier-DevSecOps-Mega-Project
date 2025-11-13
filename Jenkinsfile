@@ -6,20 +6,21 @@ pipeline {
     }
 
     environment {
+        // NOTE: Credentials MUST be removed from here.
         SONARQUBE_SERVER = 'MySonarServer'
         SONAR_PROJECT_KEY = '3-Tier-DevopsShack'
         SONAR_PROJECT_NAME = '3-Tier-DevopsShack'
-        SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/sirisha-k83/3-Tier-DevSecOps-Mega-Project.git'
+                git branch: 'master', url: 'https://github.com/sirisha-k83/3-Tier-DevSecOps-Mega-Project.git'
             }
         }
 
+        // --- Stage to calculate variables (optional, but clean) ---
         stage('Set Environment Variables') {
             steps {
                 script {
@@ -30,38 +31,43 @@ pipeline {
             }
         }
 
+        // --- Install Dependencies ---
         stage('Install Dependencies') {
             steps {
-                script {
-                    def nodeHome = tool name: 'NodeJS 22.0.0', type: 'jenkins.plugins.nodejs.tools.NodeJSInstallation'
-                    env.PATH = "${nodeHome}/bin:${env.PATH}"
-                }
+                // Simpler, correct way to load the Node.js tool (Must match name in Jenkins Tools)
+                tool 'NodeJS 22.0.0'
+                
                 dir('client') {
                     sh 'npm install'
                 }
             }
         }
 
+        // --- SonarQube Analysis ---
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    script {
-                        def scannerHome = tool 'Sonar_Scanner'
+                // 1. Use withCredentials to retrieve the token safely (Fixes Fatal Error)
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
+                    // 2. Use withSonarQubeEnv to set server URL and authentication for the scanner
+                    withSonarQubeEnv("${SONARQUBE_SERVER}") {
                         sh """
-                            ${scannerHome}/bin/sonar-scanner \
+                            # Scanner is now on PATH, no need for ${scannerHome}
+                            sonar-scanner \
                             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                             -Dsonar.projectName=${SONAR_PROJECT_NAME} \
-                            -Dsonar.sources=. \
-                            -Dsonar.login=${SONAR_TOKEN}
+                            -Dsonar.sources=client \
+                            -Dsonar.login=${SONAR_LOGIN_TOKEN}
                         """
                     }
                 }
             }
         }
 
+        // --- Quality Gate Check ---
         stage('Quality Gate Check') {
             steps {
                 script {
+                    // This relies on the SonarQube server being correctly configured in Jenkins
                     waitForQualityGate abortPipeline: true
                 }
             }
