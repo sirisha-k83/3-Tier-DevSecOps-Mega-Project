@@ -42,26 +42,29 @@ pipeline {
             }
         }
 
-        // --- SonarQube Analysis ---
-        stage('SonarQube Analysis') {
-            steps {
-                tool 'Sonar_Scanner'
-                // 1. Use withCredentials to retrieve the Secret Text token safely
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
-                    // 2. Use withSonarQubeEnv to set server URL and path for the scanner
-                    withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                        sh """
-                            # Call sonar-scanner (which is now on the PATH)
-                            sonar-scanner \
-                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                            -Dsonar.projectName=${SONAR_PROJECT_NAME} \
-                            -Dsonar.sources=client \
-                            -Dsonar.login=${SONAR_LOGIN_TOKEN}
-                        """
-                    }
-                }
+      // --- SonarQube Analysis ---
+stage('SonarQube Analysis') {
+    steps {
+        // 1. Explicitly load the SonarQube Scanner executable onto the PATH
+        tool 'Sonar_Scanner' // <-- Use the exact name from Manage Jenkins -> Tools
+        
+        // 2. Use withCredentials to retrieve the Secret Text token safely
+        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
+            
+            // 3. Use withSonarQubeEnv to set server URL and authentication for the scanner
+            withSonarQubeEnv("${SONARQUBE_SERVER}") { // This uses the server named 'MySonarServer'
+                sh """
+                    # sonar-scanner is now found because the 'tool' step added its directory to the PATH
+                    sonar-scanner \
+                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                    -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+                    -Dsonar.sources=client \
+                    -Dsonar.login=${SONAR_LOGIN_TOKEN}
+                """
             }
         }
+    }
+}
 
         // --- Quality Gate Check ---
         stage('Quality Gate Check') {
