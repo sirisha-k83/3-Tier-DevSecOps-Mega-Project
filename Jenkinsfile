@@ -34,12 +34,15 @@ pipeline {
         // --- Install Dependencies ---
         stage('Install Dependencies') {
             steps {
-                // Simpler, correct way to load the Node.js tool (Must match name in Jenkins Tools)
-                nodejs('NodeJS 22.0.0') {
-                dir('client') {
-                    sh 'npm install'
-                }
+        // Load the Node.js tool
+        nodejs('NodeJS 22.0.0') {
+            // Change directory and run npm install
+            dir('client') {
+                sh 'npm install'
             }
+        } // <-- The closing brace for nodejs('NodeJS 22.0.0') { ... } is now here.
+    }
+}
         }
 
         // --- SonarQube Analysis ---
