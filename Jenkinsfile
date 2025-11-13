@@ -46,7 +46,7 @@ pipeline {
 stage('SonarQube Analysis') {
     steps {
         // 1. Explicitly load the SonarQube Scanner executable onto the PATH
-        def scannerHome = tool 'Sonar_Scanner
+        def scannerHome = tool 'Sonar_Scanner'
         
         // 2. Use withCredentials to retrieve the Secret Text token safely
         withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
