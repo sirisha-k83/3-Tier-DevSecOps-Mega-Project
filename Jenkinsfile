@@ -35,8 +35,7 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 // Simpler, correct way to load the Node.js tool (Must match name in Jenkins Tools)
-                tool 'NodeJS 22.0.0'
-                
+                nodejs('NodeJS 22.0.0') {
                 dir('client') {
                     sh 'npm install'
                 }
