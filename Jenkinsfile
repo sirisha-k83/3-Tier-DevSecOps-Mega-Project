@@ -23,7 +23,7 @@ pipeline {
             steps {
                 script {
                     env.COMMIT_SHA = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                    env.DOCKER_IMAGE_NAME = "myapp"
+                    env.DOCKER_IMAGE_NAME = "3-Tier-DevopsShack"
                     env.DOCKER_IMAGE = "${env.DOCKER_IMAGE_NAME}:${env.COMMIT_SHA}"
                 }
             }
@@ -85,6 +85,28 @@ pipeline {
     post {
         always {
             echo "Pipeline finished for commit ${env.COMMIT_SHA}"
+        }
+    }
+ stage('TRIVY FS Scan') {
+            steps {
+                sh "trivy fs . > trivyfs.txt"  // Results stored in a text file
+            }
+        }
+        stage("Docker Build & Push") {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {   
+                        sh "docker build -t 3-Tier-DevopsShack ."
+                        sh "docker tag 3-Tier-DevopsShack sirishak83/3-Tier-DevopsShack:latest"
+                        sh "docker push sirishak83/3-Tier-DevopsShack:latest"
+                    }
+                }
+            }
+        }
+        stage('Deploy to Container') {
+            steps {
+                sh 'docker run -d --name 3-Tier-DevopsShack -p 3000:3000 sirishak83/3-Tier-DevopsShack:latest'
+            }
         }
     }
 }
