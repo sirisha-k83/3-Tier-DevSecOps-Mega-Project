@@ -26,6 +26,7 @@ pipeline {
         // --- 2. Install Dependencies 📥 ---
         stage('Install Dependencies') {
             steps {
+                tool 'Node_LTS'
                 sh 'npm install'
             }
         }
