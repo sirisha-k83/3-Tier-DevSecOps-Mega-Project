@@ -32,7 +32,8 @@ pipeline {
         // --- Install Dependencies ---
         stage('Install Dependencies') {
             steps {
-                nodejs('NodeJS 22.0.0') { // Uses tool name 'NodeJS 22.0.0'
+                // Uses the robust nodejs wrapper to ensure 'npm' is found
+                nodejs('NodeJS 22.0.0') { // References the tool name 'NodeJS 22.0.0'
                     dir('client') {
                         sh 'npm install'
                     }
@@ -44,11 +45,14 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    def scannerHome = tool 'Sonar_Scanner' // Uses tool name 'Sonar_Scanner'
+                    // Fixes 'sonar-scanner: not found' by capturing the full tool path
+                    def scannerHome = tool 'Sonar_Scanner' // References the tool name 'Sonar_Scanner'
                     
+                    // Uses withCredentials for the Secret text SONAR_TOKEN
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
-                        withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                        withSonarQubeEnv("${SONARQUBE_SERVER}") { // Uses server 'MySonarServer'
                             sh """
+                                # Calls scanner via its full path
                                 ${scannerHome}/bin/sonar-scanner \\
                                 -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
                                 -Dsonar.projectName=${SONAR_PROJECT_NAME} \\
@@ -61,18 +65,26 @@ pipeline {
             }
         }
 
-      // --- Quality Gate Check ---
-stage('Quality Gate Check') {
-    // TEMPORARILY SET TO FALSE TO SKIP THE HANGING STAGE
-    when { 
-        expression { 
-            return false // This ensures the stage is skipped
+        // --- Quality Gate Check (TEMPORARILY SKIPPED) ---
+        stage('Quality Gate Check') {
+            // This 'when' block ensures the stage is skipped to avoid the hang
+            when { 
+                expression { 
+                    return false // Forces the stage to be skipped
+                }
+            }
+            steps {
+                script {
+                    // This will not run while 'when' is false
+                    waitForQualityGate abortPipeline: true
+                }
+            }
         }
     }
-    steps {
-        script {
-            // This code will not be executed while the 'when' expression is false
-            waitForQualityGate abortPipeline: true
+
+    post {
+        always {
+            echo "Pipeline finished for commit ${env.COMMIT_SHA}"
         }
     }
 }
