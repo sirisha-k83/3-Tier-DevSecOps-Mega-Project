@@ -91,7 +91,7 @@ pipeline {
                 script {
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') { 
                         // FIX: Use -f to specify the correct Dockerfile name (dockerfile.js)
-                        sh "docker build -f dockerfile.js -t ${env.DOCKER_IMAGE_NAME} ." 
+                        sh "docker build -f dockerfile -t ${env.DOCKER_IMAGE_NAME} ." 
 
                         sh "docker tag ${env.DOCKER_IMAGE_NAME} sirishak83/${env.DOCKER_IMAGE_NAME}:latest" 
                         sh "docker tag ${env.DOCKER_IMAGE_NAME} ${env.DOCKER_IMAGE}" 
