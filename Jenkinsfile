@@ -5,6 +5,12 @@ pipeline {
         githubPush()
     }
 
+    environment {
+        SONARQUBE_SERVER = 'MySonarServer' // Name configured in Jenkins global settings
+        SONAR_PROJECT_KEY = '3-Tier-DevopsShack'
+        SONAR_PROJECT_NAME = '3-Tier-DevopsShack'
+    }
+
     stages {
 
         // --- 1. Checkout 📦 ---
@@ -38,23 +44,26 @@ pipeline {
             }
         }
 
+        // --- 4. SonarQube Analysis 🔍 ---
         stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('MySonarServer') { // Use the name of your SonarQube server in Jenkins global config
-            script {
-                def scannerHome = tool 'Sonar_Scanner'
-                sh """
-                    ${scannerHome}/bin/sonar-scanner \
-                    -Dsonar.projectKey=3-Tier-DevopsShack \
-                    -Dsonar.projectName=3-Tier-DevopsShack \
-                    -Dsonar.sources=. \
-                    -Dsonar.login=${SONAR_TOKEN}
-                """
+            steps {
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    script {
+                        def scannerHome = tool 'Sonar_Scanner'
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+                            -Dsonar.sources=. \
+                            -Dsonar.login=${SONAR_TOKEN}
+                        """
+                    }
+                }
             }
         }
 
-        // --- 5. Quality Gate Check (Using Jenkins Plugin) ⏱️ ---
-        stage("Quality Gate Check") {
+        // --- 5. Quality Gate Check ✅ ---
+        stage('Quality Gate Check') {
             steps {
                 script {
                     waitForQualityGate abortPipeline: true
