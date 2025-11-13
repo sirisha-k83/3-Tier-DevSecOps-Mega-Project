@@ -38,20 +38,18 @@ pipeline {
             }
         }
 
-        // --- 4. SonarQube Analysis (Using Docker) 🛡️ ---
         stage('SonarQube Analysis') {
-            steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                    sh '''
-                        docker run --rm \
-                        -e SONAR_HOST_URL="http://4.246.109.74:9000" \
-                        -e SONAR_LOGIN="$SONAR_TOKEN" \
-                        -v "$(pwd):/usr/src" \
-                        sonarsource/sonar-scanner-cli \
-                        -Dsonar.projectName="3-Tier-DevopsShack" \
-                        -Dsonar.projectKey="3-Tier-DevopsShack"
-                    '''
-                }
+    steps {
+        withSonarQubeEnv('MySonarServer') { // Use the name of your SonarQube server in Jenkins global config
+            script {
+                def scannerHome = tool 'Sonar_Scanner'
+                sh """
+                    ${scannerHome}/bin/sonar-scanner \
+                    -Dsonar.projectKey=3-Tier-DevopsShack \
+                    -Dsonar.projectName=3-Tier-DevopsShack \
+                    -Dsonar.sources=. \
+                    -Dsonar.login=${SONAR_TOKEN}
+                """
             }
         }
 
