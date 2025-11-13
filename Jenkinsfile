@@ -9,7 +9,7 @@ pipeline {
         // --- SonarQube Variables ---
         SONARQUBE_SERVER = 'MySonarServer'
         SONAR_PROJECT_KEY = '3-Tier-DevopsShack'
-        SONAR_PROJECT_NAME = '3-Tier-devopsshack'
+        SONAR_PROJECT_NAME = '3-tier-devopsshack'
 
         // --- Docker & Git Variables ---
         // These will be set in a script block below, but defined here to be clear
