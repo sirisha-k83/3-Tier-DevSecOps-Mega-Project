@@ -8,7 +8,7 @@ pipeline {
     environment {
         SONARQUBE_SERVER = 'MySonarServer'
         SONAR_PROJECT_KEY = '3-Tier-DevopsShack'
-        SONAR_PROJECT_NAME = '3-Tier-DevopsShack'
+        SONAR_PROJECT_NAME = '3-tier-devopsshack'
     }
 
     stages {
