@@ -23,8 +23,9 @@ pipeline {
             steps {
                 script {
                     env.COMMIT_SHA = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                    env.DOCKER_IMAGE_NAME = "3-Tier-DevopsShack"
-                    env.DOCKER_IMAGE = "${env.DOCKER_IMAGE_NAME}:${env.COMMIT_SHA}"
+                    // Using the SONAR_PROJECT_NAME as the image name for consistency
+                    env.DOCKER_IMAGE_NAME = "${SONAR_PROJECT_NAME}" 
+                    env.DOCKER_IMAGE = "sirishak83/${env.DOCKER_IMAGE_NAME}:${env.COMMIT_SHA}"
                 }
             }
         }
@@ -32,8 +33,7 @@ pipeline {
         // --- Install Dependencies ---
         stage('Install Dependencies') {
             steps {
-                // Uses the robust nodejs wrapper to ensure 'npm' is found
-                nodejs('NodeJS 22.0.0') { // References the tool name 'NodeJS 22.0.0'
+                nodejs('NodeJS 22.0.0') {
                     dir('client') {
                         sh 'npm install'
                     }
@@ -45,14 +45,11 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    // Fixes 'sonar-scanner: not found' by capturing the full tool path
-                    def scannerHome = tool 'Sonar_Scanner' // References the tool name 'Sonar_Scanner'
+                    def scannerHome = tool 'Sonar_Scanner'
                     
-                    // Uses withCredentials for the Secret text SONAR_TOKEN
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN_TOKEN')]) {
-                        withSonarQubeEnv("${SONARQUBE_SERVER}") { // Uses server 'MySonarServer'
+                        withSonarQubeEnv("${SONARQUBE_SERVER}") {
                             sh """
-                                # Calls scanner via its full path
                                 ${scannerHome}/bin/sonar-scanner \\
                                 -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
                                 -Dsonar.projectName=${SONAR_PROJECT_NAME} \\
@@ -67,7 +64,6 @@ pipeline {
 
         // --- Quality Gate Check (TEMPORARILY SKIPPED) ---
         stage('Quality Gate Check') {
-            // This 'when' block ensures the stage is skipped to avoid the hang
             when { 
                 expression { 
                     return false // Forces the stage to be skipped
@@ -75,38 +71,51 @@ pipeline {
             }
             steps {
                 script {
-                    // This will not run while 'when' is false
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
-    }
+
+        // --- TRIVY FS Scan ---
+        stage('TRIVY FS Scan') {
+            steps {
+                sh "trivy fs . > trivyfs.txt" // Scans the filesystem and stores results
+            }
+        }
+
+        // --- Docker Build & Push ---
+        stage("Docker Build & Push") {
+            steps {
+                script {
+                    // Assuming 'docker' is the ID for your DockerHub credentials
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') { 
+                        // Build using the project name
+                        sh "docker build -t ${env.DOCKER_IMAGE_NAME} ." 
+                        // Tagging with latest for easy reference (and SHA for immutable tag)
+                        sh "docker tag ${env.DOCKER_IMAGE_NAME} sirishak83/${env.DOCKER_IMAGE_NAME}:latest" 
+                        sh "docker tag ${env.DOCKER_IMAGE_NAME} ${env.DOCKER_IMAGE}" 
+                        
+                        // Push both tags
+                        sh "docker push sirishak83/${env.DOCKER_IMAGE_NAME}:latest"
+                        sh "docker push ${env.DOCKER_IMAGE}"
+                    }
+                }
+            }
+        }
+
+        // --- Deploy to Container ---
+        stage('Deploy to Container') {
+            steps {
+                // Remove previous container if it exists, then run the new image
+                sh "docker rm -f ${env.DOCKER_IMAGE_NAME} || true" 
+                sh "docker run -d --name ${env.DOCKER_IMAGE_NAME} -p 3000:3000 sirishak83/${env.DOCKER_IMAGE_NAME}:latest"
+            }
+        }
+    } // <-- This closes the main 'stages' block.
 
     post {
         always {
             echo "Pipeline finished for commit ${env.COMMIT_SHA}"
         }
     }
- stage('TRIVY FS Scan') {
-            steps {
-                sh "trivy fs . > trivyfs.txt"  // Results stored in a text file
-            }
-        }
-        stage("Docker Build & Push") {
-            steps {
-                script {
-                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {   
-                        sh "docker build -t 3-Tier-DevopsShack ."
-                        sh "docker tag 3-Tier-DevopsShack sirishak83/3-Tier-DevopsShack:latest"
-                        sh "docker push sirishak83/3-Tier-DevopsShack:latest"
-                    }
-                }
-            }
-        }
-        stage('Deploy to Container') {
-            steps {
-                sh 'docker run -d --name 3-Tier-DevopsShack -p 3000:3000 sirishak83/3-Tier-DevopsShack:latest'
-            }
-        }
-    }
-
+} // <-- This closes the 'pipeline' block.
