@@ -18,9 +18,9 @@ pipeline {
         // --- MySQL Connection Variables (USING PROVIDED VALUES) ---
         // WARNING: DB_PASS is hardcoded here and will be visible in logs!
         DB_HOST = '172.17.0.1'           // Docker bridge gateway IP to access MySQL on the host VM
-        DB_USER = 'root'
+        DB_USER = 'app_user'
         DB_NAME = 'crud_app'
-        DB_PASS = 'Siri'                 // Hardcoded password
+        DB_PASS = 'app_pass123'                 // Hardcoded password
         DB_PORT = '3306'                 // MySQL default port
     }
 
