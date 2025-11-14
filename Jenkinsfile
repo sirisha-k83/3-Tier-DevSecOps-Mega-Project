@@ -20,7 +20,7 @@ pipeline {
         stage('Frontend Compilation') {
             steps {
                 dir('client') {
-                    sh 'find . -name "*.js" -exec node --check {} +'
+                    sh 'find . -path ./node_modules -prune -o -name "*.js" -exec node --check {} +'
                 }
             }
         }
@@ -28,7 +28,7 @@ pipeline {
         stage('Backend Compilation') {
             steps {
                 dir('api') {
-                    sh 'find . -name "*.js" -exec node --check {} +'
+                    sh 'find . -path ./node_modules -prune -o -name "*.js" -exec node --check {} +'
                 }
             }
         }
