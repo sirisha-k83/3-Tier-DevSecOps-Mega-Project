@@ -1,62 +1,45 @@
 pipeline {
     agent any
-
-    triggers {
-        githubPush()
+    
+    tools {
+        nodejs 'NodeJS 22.0.0'
     }
 
     environment {
-        // --- SonarQube Variables ---
         SONARQUBE_SERVER = 'MySonarServer'
         SONAR_PROJECT_KEY = '3-Tier-DevopsShack'
         SONAR_PROJECT_NAME = '3-tier-devopsshack'
-
-        // --- Docker & Git Variables ---
-        // These will be set in a script block below, but defined here to be clear
-        // DOCKER_IMAGE_NAME and COMMIT_SHA will be set dynamically
-
-        // --- MySQL Connection Variables (USING PROVIDED VALUES) ---
-        // WARNING: DB_PASS is hardcoded here and will be visible in logs!
-        DB_HOST = '172.17.0.1'           // Docker bridge gateway IP to access MySQL on the host VM
-        DB_USER = 'app_user'
-        DB_NAME = 'crud_app'
-        DB_PASS = 'app_pass123'                 // Hardcoded password
-        DB_PORT = '3306'                 // MySQL default port
     }
-
     stages {
-
-        stage('Checkout') {
+        stage('Git Checkout') {
             steps {
                 git branch: 'master', url: 'https://github.com/sirisha-k83/3-Tier-DevSecOps-Mega-Project.git'
             }
         }
-
-        stage('Set Environment Variables') {
+        
+        stage('Frontend Compilation') {
             steps {
-                script {
-                    env.COMMIT_SHA = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                    env.DOCKER_IMAGE_NAME = "${SONAR_PROJECT_NAME}" 
-                    env.DOCKER_IMAGE = "sirishak83/${env.DOCKER_IMAGE_NAME}:${env.COMMIT_SHA}"
+                dir('client') {
+                    sh 'find . -name "*.js" -exec node --check {} +'
                 }
             }
         }
-
-        // --- Install Dependencies on Agent (for analysis) ---
-        stage('Install Dependencies') {
+        
+        stage('Backend Compilation') {
             steps {
-                nodejs('NodeJS 22.0.0') {
-                    dir('api') {
-                        sh 'npm install'
-                    }
-                    dir('client') {
-                        sh 'npm install'
-                    }
+                dir('api') {
+                    sh 'find . -name "*.js" -exec node --check {} +'
                 }
             }
         }
-
-        // --- SonarQube Analysis ---
+        
+        stage('GitLeaks Scan') {
+            steps {
+                sh 'gitleaks detect --source ./client --exit-code 1'
+                sh 'gitleaks detect --source ./api --exit-code 1'
+            }
+        }
+        
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -98,51 +81,29 @@ pipeline {
                 sh "trivy fs . > trivyfs.txt"
             }
         }
-
-        // --- Docker Build & Push ---
-        stage("Docker Build & Push") {
+        
+        stage('Build-Tag & Push Backend Docker Image') {
             steps {
                 script {
-                    // Assuming 'docker' is the ID for your DockerHub credentials
-                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') { 
-                        // FIX: Use -f to specify the correct Dockerfile name (dockerfile.js)
-                        sh "docker build -f dockerfile -t ${env.DOCKER_IMAGE_NAME} ." 
-
-                        sh "docker tag ${env.DOCKER_IMAGE_NAME} sirishak83/${env.DOCKER_IMAGE_NAME}:latest" 
-                        sh "docker tag ${env.DOCKER_IMAGE_NAME} ${env.DOCKER_IMAGE}" 
-                        
-                        sh "docker push sirishak83/${env.DOCKER_IMAGE_NAME}:latest"
-                        sh "docker push ${env.DOCKER_IMAGE}"
+                    withDockerRegistry(credentialsId: 'docker') {
+                        dir('api') {
+                            sh 'docker build -t sirishak83/backend:latest .'
+                            sh 'docker push sirishak83/backend:latest'
+                                    }
                     }
                 }
             }
-        }
-
-        // --- Deploy to Container with DB Credentials ---
-        stage('Deploy to Container') {
+        }  
+            
+        stage('Build-Tag & Push Frontend Docker Image') {
             steps {
-                sh "docker rm -f ${env.DOCKER_IMAGE_NAME} || true" 
-                
-                // Passing all necessary environment variables (-e) to the container
-                sh """
-                    docker run -d \\
-                    --name ${env.DOCKER_IMAGE_NAME} \\
-                    -p 3000:3000 \\
-                    -p 5000:5000 \\
-                    -e DB_HOST='${env.DB_HOST}' \\
-                    -e DB_USER='${env.DB_USER}' \\
-                    -e DB_NAME='${env.DB_NAME}' \\
-                    -e DB_PORT='${env.DB_PORT}' \\
-                    -e DB_PASS='${env.DB_PASS}' \\
-                    sirishak83/${env.DOCKER_IMAGE_NAME}:latest
-                """
+                script {
+                    withDockerRegistry(credentialsId: 'docker') {
+                        dir('client') {
+                            sh 'docker build -t sirishak83/frontend:latest .'
+                            sh 'docker push sirishak83/frontend:latest'
+                        }
+                    }
+                }
             }
-        }
-    }
-
-    post {
-        always {
-            echo "Pipeline finished for commit ${env.COMMIT_SHA}"
-        }
-    }
-}
+        }  
