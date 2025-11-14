@@ -32,20 +32,26 @@ pipeline {
 
        stage('Setup Gitleaks') {
          steps {
-           sh """
-            # Download the Gitleaks binary (replace URL/version as needed)
-            curl -L https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz | tar -xz -C /usr/local/bin
-             """
-        // The binary should now be available in the path for subsequent stages
-          }
+          sh """
+            # 1. Download the file into the workspace
+            curl -L https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz -o gitleaks.tar.gz
+            
+            # 2. Extract into the workspace
+            tar -xzf gitleaks.tar.gz
+            
+            # 3. Rename the binary to 'gitleaks' and ensure it's executable
+            chmod +x gitleaks
+        """
        }
+   }
 
-      stage('GitLeaks Scan') {
-         steps {
-              sh 'gitleaks detect --source ./client --exit-code 1'
-              sh 'gitleaks detect --source ./api --exit-code 1'
-             }
+    stage('GitLeaks Scan') {
+       steps {
+        // You must now execute it using the relative path from the workspace
+        sh './gitleaks detect --source ./client --exit-code 1'
+        sh './gitleaks detect --source ./api --exit-code 1'
         }
+   }
         stage('SonarQube Analysis') {
             steps {
                 script {
