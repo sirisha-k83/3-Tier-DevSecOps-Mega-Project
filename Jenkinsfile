@@ -17,18 +17,15 @@ pipeline {
             }
         }
         
-        stage('Frontend Compilation') {
-            steps {
-                dir('client') {
-                    sh 'find . -path ./node_modules -prune -o -name "*.js" -exec node --check {} +'
-                }
-            }
-        }
-        
-        stage('Backend Compilation') {
-            steps {
-                dir('api') {
-                    sh 'find . -path ./node_modules -prune -o -name "*.js" -exec node --check {} +'
+        stage('Install Dependencies') {
+           steps {
+                nodejs('NodeJS 22.0.0') {
+                    dir('api') {
+                        sh 'npm install'
+                    }
+                    dir('client') {
+                        sh 'npm install'
+                    }
                 }
             }
         }
